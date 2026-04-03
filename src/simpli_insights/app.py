@@ -11,8 +11,6 @@ import structlog
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-
-from simpli_insights import __version__
 from simpli_core import CostTracker, create_app
 from simpli_core.connectors import (
     FieldMapping,
@@ -21,6 +19,8 @@ from simpli_core.connectors import (
     apply_mappings,
 )
 from simpli_core.connectors.mapping import CASE_TO_TICKET
+
+from simpli_insights import __version__
 from simpli_insights.settings import settings
 
 cost_tracker = CostTracker()
@@ -240,7 +240,8 @@ class SalesforceIngestRequest(BaseModel):
     )
     limit: int = Field(default=100, ge=1, le=10000, description="Max records to fetch")
     mappings: list[FieldMapping] | None = Field(
-        default=None, description="Custom field mappings (uses defaults if not provided)"
+        default=None,
+        description="Custom field mappings (uses defaults if not provided)",
     )
 
 
@@ -262,7 +263,9 @@ class IngestResult(BaseModel):
 
 @app.post("/api/v1/ingest", response_model=IngestResult, tags=["ingest"])
 async def ingest_file(
-    file: UploadFile = File(..., description="File to ingest (CSV, JSON, or JSONL)"),
+    file: UploadFile = File(  # noqa: B008
+        ..., description="File to ingest (CSV, JSON, or JSONL)"
+    ),
     mappings: str | None = Form(
         default=None, description="JSON array of field mappings"
     ),
@@ -279,9 +282,7 @@ async def ingest_file(
     return await _process_records(records, field_mappings, apply_defaults=False)
 
 
-@app.post(
-    "/api/v1/ingest/salesforce", response_model=IngestResult, tags=["ingest"]
-)
+@app.post("/api/v1/ingest/salesforce", response_model=IngestResult, tags=["ingest"])
 async def ingest_salesforce(request: SalesforceIngestRequest) -> IngestResult:
     """Pull cases from Salesforce and discover themes."""
     instance_url = request.instance_url or settings.salesforce_instance_url
@@ -291,7 +292,10 @@ async def ingest_salesforce(request: SalesforceIngestRequest) -> IngestResult:
     if not all([instance_url, client_id, client_secret]):
         return JSONResponse(  # type: ignore[return-value]
             status_code=400,
-            content={"detail": "Salesforce credentials required (instance_url, client_id, client_secret)"},
+            content={
+                "detail": "Salesforce credentials required"
+                " (instance_url, client_id, client_secret)"
+            },
         )
 
     logger.info("ingest_salesforce", instance_url=instance_url, limit=request.limit)
@@ -337,7 +341,9 @@ async def _process_records(
                 Case(
                     id=record.get("id", f"ingest-{i}"),
                     subject=record.get("subject", record.get("Subject", "Unknown")),
-                    content=record.get("description", record.get("content", "No content")),
+                    content=record.get(
+                        "description", record.get("content", "No content")
+                    ),
                     category=record.get("category"),
                 )
             )

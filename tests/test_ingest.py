@@ -56,11 +56,13 @@ def test_ingest_with_custom_mappings(client: TestClient) -> None:
         "2,Issue B,Details B\n"
         "3,Issue C,Details C\n"
     )
-    mappings = json.dumps([
-        {"source": "case_id", "target": "id"},
-        {"source": "title", "target": "subject"},
-        {"source": "body", "target": "content"},
-    ])
+    mappings = json.dumps(
+        [
+            {"source": "case_id", "target": "id"},
+            {"source": "title", "target": "subject"},
+            {"source": "body", "target": "content"},
+        ]
+    )
     file = io.BytesIO(csv_content.encode())
     response = client.post(
         "/api/v1/ingest",
