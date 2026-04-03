@@ -35,6 +35,9 @@ dev = [
 [project.scripts]
 simpli-insights = "simpli_insights.cli:app"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.ruff]
 line-length = 88
 target-version = "py311"
