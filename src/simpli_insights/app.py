@@ -48,16 +48,24 @@ class Case(BaseModel):
     subject: str = Field(min_length=1, description="Case subject line")
     content: str = Field(min_length=1, description="Full case content text")
     category: str | None = Field(default=None, description="Case category or type")
-    tags: list[str] = Field(default_factory=list, description="Tags associated with the case")
-    created_at: datetime | None = Field(default=None, description="When the case was created")
-    resolved: bool | None = Field(default=None, description="Whether the case has been resolved")
+    tags: list[str] = Field(
+        default_factory=list, description="Tags associated with the case"
+    )
+    created_at: datetime | None = Field(
+        default=None, description="When the case was created"
+    )
+    resolved: bool | None = Field(
+        default=None, description="Whether the case has been resolved"
+    )
 
 
 # -- Themes --
 
 
 class ThemesRequest(BaseModel):
-    cases: list[Case] = Field(min_length=3, description="Cases to discover themes from (minimum 3)")
+    cases: list[Case] = Field(
+        min_length=3, description="Cases to discover themes from (minimum 3)"
+    )
 
 
 class Theme(BaseModel):
@@ -66,36 +74,50 @@ class Theme(BaseModel):
     description: str = Field(description="Description of the theme")
     case_ids: list[str] = Field(description="IDs of cases belonging to this theme")
     case_count: int = Field(description="Number of cases in this theme")
-    sample_subjects: list[str] = Field(description="Sample subject lines from this theme")
+    sample_subjects: list[str] = Field(
+        description="Sample subject lines from this theme"
+    )
 
 
 class ThemesResponse(BaseModel):
     audit_id: str = Field(description="Unique identifier for this theme analysis")
     total_cases: int = Field(description="Number of cases analyzed")
     themes: list[Theme] = Field(description="Discovered themes")
-    uncategorized_case_ids: list[str] = Field(description="Cases that didn't fit any theme")
+    uncategorized_case_ids: list[str] = Field(
+        description="Cases that didn't fit any theme"
+    )
 
 
 # -- Emerging --
 
 
 class EmergingRequest(BaseModel):
-    recent_cases: list[Case] = Field(min_length=1, description="Recent cases to analyze for trends")
-    baseline_cases: list[Case] | None = Field(default=None, description="Older cases for comparison baseline")
+    recent_cases: list[Case] = Field(
+        min_length=1, description="Recent cases to analyze for trends"
+    )
+    baseline_cases: list[Case] | None = Field(
+        default=None, description="Older cases for comparison baseline"
+    )
 
 
 class EmergingTopic(BaseModel):
     topic: str = Field(description="Emerging topic name")
     case_count: int = Field(description="Number of cases related to this topic")
     growth_rate: float = Field(description="Rate of increase compared to baseline")
-    first_seen: str | None = Field(default=None, description="When this topic was first observed")
+    first_seen: str | None = Field(
+        default=None, description="When this topic was first observed"
+    )
     case_ids: list[str] = Field(description="IDs of cases related to this topic")
 
 
 class EmergingResponse(BaseModel):
-    audit_id: str = Field(description="Unique identifier for this emerging topics analysis")
+    audit_id: str = Field(
+        description="Unique identifier for this emerging topics analysis"
+    )
     total_recent: int = Field(description="Number of recent cases analyzed")
-    total_baseline: int | None = Field(description="Number of baseline cases used for comparison")
+    total_baseline: int | None = Field(
+        description="Number of baseline cases used for comparison"
+    )
     topics: list[EmergingTopic] = Field(description="Detected emerging topics")
 
 
@@ -103,8 +125,12 @@ class EmergingResponse(BaseModel):
 
 
 class CategoriesRequest(BaseModel):
-    cases: list[Case] = Field(min_length=3, description="Cases to derive categories from (minimum 3)")
-    existing_categories: list[str] | None = Field(default=None, description="Current category names to compare against")
+    cases: list[Case] = Field(
+        min_length=3, description="Cases to derive categories from (minimum 3)"
+    )
+    existing_categories: list[str] | None = Field(
+        default=None, description="Current category names to compare against"
+    )
 
 
 class SuggestedCategory(BaseModel):
@@ -119,14 +145,18 @@ class CategoriesResponse(BaseModel):
     audit_id: str = Field(description="Unique identifier for this category analysis")
     total_cases: int = Field(description="Number of cases analyzed")
     categories: list[SuggestedCategory] = Field(description="Suggested categories")
-    unmapped_case_ids: list[str] = Field(description="Cases not assigned to any category")
+    unmapped_case_ids: list[str] = Field(
+        description="Cases not assigned to any category"
+    )
 
 
 # -- Distribution --
 
 
 class DistributionRequest(BaseModel):
-    cases: list[Case] = Field(min_length=1, description="Cases to analyze distribution for")
+    cases: list[Case] = Field(
+        min_length=1, description="Cases to analyze distribution for"
+    )
 
 
 class CategoryDistribution(BaseModel):
@@ -136,9 +166,13 @@ class CategoryDistribution(BaseModel):
 
 
 class DistributionResponse(BaseModel):
-    audit_id: str = Field(description="Unique identifier for this distribution analysis")
+    audit_id: str = Field(
+        description="Unique identifier for this distribution analysis"
+    )
     total_cases: int = Field(description="Total number of cases analyzed")
-    distribution: list[CategoryDistribution] = Field(description="Distribution of cases across categories")
+    distribution: list[CategoryDistribution] = Field(
+        description="Distribution of cases across categories"
+    )
     uncategorized_count: int = Field(description="Number of cases without a category")
 
 
@@ -191,7 +225,12 @@ def _parse_llm_json(raw: str) -> dict:
     return json_module.loads(text)
 
 
-@v1.post("/themes", response_model=ThemesResponse, tags=["themes"], summary="Discover recurring themes from support cases")
+@v1.post(
+    "/themes",
+    response_model=ThemesResponse,
+    tags=["themes"],
+    summary="Discover recurring themes from support cases",
+)
 async def discover_themes(request: ThemesRequest) -> ThemesResponse:
     """Discover themes from a batch of support cases."""
     audit_id = str(uuid.uuid4())
@@ -247,7 +286,12 @@ async def discover_themes(request: ThemesRequest) -> ThemesResponse:
     )
 
 
-@v1.post("/emerging", response_model=EmergingResponse, tags=["emerging"], summary="Detect emerging or trending support topics")
+@v1.post(
+    "/emerging",
+    response_model=EmergingResponse,
+    tags=["emerging"],
+    summary="Detect emerging or trending support topics",
+)
 async def detect_emerging(request: EmergingRequest) -> EmergingResponse:
     """Detect emerging or trending topics in recent cases."""
     audit_id = str(uuid.uuid4())
@@ -308,14 +352,18 @@ async def detect_emerging(request: EmergingRequest) -> EmergingResponse:
     )
 
 
-@v1.post("/categories", response_model=CategoriesResponse, tags=["categories"], summary="Suggest a category taxonomy from support cases")
+@v1.post(
+    "/categories",
+    response_model=CategoriesResponse,
+    tags=["categories"],
+    summary="Suggest a category taxonomy from support cases",
+)
 async def suggest_categories(request: CategoriesRequest) -> CategoriesResponse:
     """Suggest a category taxonomy from support cases."""
     audit_id = str(uuid.uuid4())
 
     cases_text = "\n".join(
-        f"- Case {c.id}: {c.subject} — {c.content[:200]}"
-        for c in request.cases
+        f"- Case {c.id}: {c.subject} — {c.content[:200]}" for c in request.cases
     )
     content = f"Cases:\n{cases_text}"
     if request.existing_categories:
@@ -374,7 +422,12 @@ async def suggest_categories(request: CategoriesRequest) -> CategoriesResponse:
     )
 
 
-@v1.post("/distribution", response_model=DistributionResponse, tags=["distribution"], summary="Analyse case distribution across categories")
+@v1.post(
+    "/distribution",
+    response_model=DistributionResponse,
+    tags=["distribution"],
+    summary="Analyse case distribution across categories",
+)
 async def analyse_distribution(request: DistributionRequest) -> DistributionResponse:
     """Analyse distribution of cases across existing categories."""
     audit_id = str(uuid.uuid4())
@@ -476,7 +529,12 @@ class IngestResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@app.post("/api/v1/ingest", response_model=IngestResult, tags=["ingest"], summary="Ingest cases from a file and discover themes")
+@app.post(
+    "/api/v1/ingest",
+    response_model=IngestResult,
+    tags=["ingest"],
+    summary="Ingest cases from a file and discover themes",
+)
 async def ingest_file(
     file: UploadFile = File(  # noqa: B008
         ..., description="File to ingest (CSV, JSON, or JSONL)"
@@ -497,7 +555,12 @@ async def ingest_file(
     return await _process_records(records, field_mappings, apply_defaults=False)
 
 
-@app.post("/api/v1/ingest/salesforce", response_model=IngestResult, tags=["ingest"], summary="Pull Salesforce cases and discover themes")
+@app.post(
+    "/api/v1/ingest/salesforce",
+    response_model=IngestResult,
+    tags=["ingest"],
+    summary="Pull Salesforce cases and discover themes",
+)
 async def ingest_salesforce(request: SalesforceIngestRequest) -> IngestResult:
     """Pull cases from Salesforce and discover themes."""
     instance_url = request.instance_url or settings.salesforce_instance_url
@@ -540,10 +603,11 @@ async def _process_records(
     apply_defaults: bool = True,
 ) -> IngestResult:
     """Apply mappings to records and discover themes."""
+    keep = settings.preserve_unmapped_fields
     if custom_mappings:
-        mapped = apply_mappings(records, custom_mappings, preserve_unmapped=settings.preserve_unmapped_fields)
+        mapped = apply_mappings(records, custom_mappings, preserve_unmapped=keep)
     elif apply_defaults:
-        mapped = apply_mappings(records, CASE_TO_TICKET, preserve_unmapped=settings.preserve_unmapped_fields)
+        mapped = apply_mappings(records, CASE_TO_TICKET, preserve_unmapped=keep)
     else:
         mapped = records
 
