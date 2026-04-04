@@ -211,7 +211,7 @@ DISTRIBUTION_SYSTEM_PROMPT = (
 )
 
 
-def _parse_llm_json(raw: str) -> dict:
+def _parse_llm_json(raw: str) -> dict[str, Any]:
     """Extract JSON from LLM output, handling code fences and embedded JSON."""
     text = raw.strip()
     # Strip markdown code fences
@@ -222,7 +222,8 @@ def _parse_llm_json(raw: str) -> dict:
     brace_match = re.search(r"\{.*\}", text, re.DOTALL)
     if brace_match:
         text = brace_match.group(0)
-    return json_module.loads(text)
+    result: dict[str, Any] = json_module.loads(text)
+    return result
 
 
 @v1.post(
