@@ -211,6 +211,30 @@ DISTRIBUTION_SYSTEM_PROMPT = (
 )
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Convert a value to float, returning *default* when conversion fails.
+
+    LLMs sometimes return descriptive strings (e.g. ``"stable"``) instead of
+    numeric values.  This helper prevents ``ValueError`` in those cases.
+    """
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    """Convert a value to int, returning *default* when conversion fails.
+
+    Handles LLM responses that return non-numeric strings where an integer is
+    expected.
+    """
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _parse_llm_json(raw: str) -> dict[str, Any]:
     """Extract JSON from LLM output, handling code fences and embedded JSON."""
     text = raw.strip()
@@ -270,7 +294,7 @@ async def discover_themes(request: ThemesRequest) -> ThemesResponse:
             name=t.get("name", "unknown"),
             description=t.get("description", ""),
             case_ids=rep_cases,
-            case_count=int(t.get("frequency", len(rep_cases))),
+            case_count=_safe_int(t.get("frequency", len(rep_cases)), len(rep_cases)),
             sample_subjects=[],
         )
         themes.append(theme)
@@ -333,8 +357,8 @@ async def detect_emerging(request: EmergingRequest) -> EmergingResponse:
         topics.append(
             EmergingTopic(
                 topic=t.get("name", "unknown"),
-                case_count=int(t.get("case_count", 0)),
-                growth_rate=float(t.get("growth_rate", 0.0)),
+                case_count=_safe_int(t.get("case_count", 0)),
+                growth_rate=_safe_float(t.get("growth_rate", 0.0)),
                 first_seen=t.get("first_seen"),
                 case_ids=[],
             )
@@ -396,7 +420,7 @@ async def suggest_categories(request: CategoriesRequest) -> CategoriesResponse:
     for cat in parsed.get("categories", []):
         name = cat.get("name", "unknown")
         # Estimate case count from percentage
-        pct = float(cat.get("estimated_percentage", 0))
+        pct = _safe_float(cat.get("estimated_percentage", 0))
         case_count = round(pct / 100 * len(request.cases)) if pct else 0
         categories.append(
             SuggestedCategory(
@@ -464,12 +488,12 @@ async def analyse_distribution(request: DistributionRequest) -> DistributionResp
         distribution.append(
             CategoryDistribution(
                 category=d.get("category", "unknown"),
-                count=int(d.get("count", 0)),
-                percentage=float(d.get("percentage", 0.0)),
+                count=_safe_int(d.get("count", 0)),
+                percentage=_safe_float(d.get("percentage", 0.0)),
             )
         )
 
-    uncategorized_count = int(parsed.get("uncategorized_count", 0))
+    uncategorized_count = _safe_int(parsed.get("uncategorized_count", 0))
 
     logger.info(
         "distribution_requested",
