@@ -13,7 +13,7 @@ import structlog
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from simpli_core import CostTracker, create_app
+from simpli_core import CostTracker, create_app, parse_llm_json, safe_float, safe_int
 from simpli_core.connectors import (
     FieldMapping,
     FileConnector,
@@ -211,43 +211,6 @@ DISTRIBUTION_SYSTEM_PROMPT = (
 )
 
 
-def _safe_float(value: Any, default: float = 0.0) -> float:
-    """Convert a value to float, returning *default* when conversion fails.
-
-    LLMs sometimes return descriptive strings (e.g. ``"stable"``) instead of
-    numeric values.  This helper prevents ``ValueError`` in those cases.
-    """
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_int(value: Any, default: int = 0) -> int:
-    """Convert a value to int, returning *default* when conversion fails.
-
-    Handles LLM responses that return non-numeric strings where an integer is
-    expected.
-    """
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _parse_llm_json(raw: str) -> dict[str, Any]:
-    """Extract JSON from LLM output, handling code fences and embedded JSON."""
-    text = raw.strip()
-    # Strip markdown code fences
-    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
-    if fence_match:
-        text = fence_match.group(1).strip()
-    # Find first { ... } block
-    brace_match = re.search(r"\{.*\}", text, re.DOTALL)
-    if brace_match:
-        text = brace_match.group(0)
-    result: dict[str, Any] = json_module.loads(text)
-    return result
 
 
 @v1.post(
@@ -275,13 +238,14 @@ async def discover_themes(request: ThemesRequest) -> ThemesResponse:
         model=settings.litellm_model,
         messages=messages,
         temperature=0.2,
+        timeout=60,
     )
     cost_tracker.record_from_response(settings.litellm_model, response)
 
     raw = response.choices[0].message.content or ""
     try:
-        parsed = _parse_llm_json(raw)
-    except (json_module.JSONDecodeError, TypeError):
+        parsed = parse_llm_json(raw)
+    except (ValueError, TypeError):
         logger.warning("themes_parse_error", audit_id=audit_id, raw=raw[:200])
         parsed = {}
 
@@ -294,7 +258,7 @@ async def discover_themes(request: ThemesRequest) -> ThemesResponse:
             name=t.get("name", "unknown"),
             description=t.get("description", ""),
             case_ids=rep_cases,
-            case_count=_safe_int(t.get("frequency", len(rep_cases)), len(rep_cases)),
+            case_count=safe_int(t.get("frequency", len(rep_cases)), len(rep_cases)),
             sample_subjects=[],
         )
         themes.append(theme)
@@ -342,13 +306,14 @@ async def detect_emerging(request: EmergingRequest) -> EmergingResponse:
         model=settings.litellm_model,
         messages=messages,
         temperature=0.2,
+        timeout=60,
     )
     cost_tracker.record_from_response(settings.litellm_model, response)
 
     raw = response.choices[0].message.content or ""
     try:
-        parsed = _parse_llm_json(raw)
-    except (json_module.JSONDecodeError, TypeError):
+        parsed = parse_llm_json(raw)
+    except (ValueError, TypeError):
         logger.warning("emerging_parse_error", audit_id=audit_id, raw=raw[:200])
         parsed = {}
 
@@ -357,8 +322,8 @@ async def detect_emerging(request: EmergingRequest) -> EmergingResponse:
         topics.append(
             EmergingTopic(
                 topic=t.get("name", "unknown"),
-                case_count=_safe_int(t.get("case_count", 0)),
-                growth_rate=_safe_float(t.get("growth_rate", 0.0)),
+                case_count=safe_int(t.get("case_count", 0)),
+                growth_rate=safe_float(t.get("growth_rate", 0.0)),
                 first_seen=t.get("first_seen"),
                 case_ids=[],
             )
@@ -403,13 +368,14 @@ async def suggest_categories(request: CategoriesRequest) -> CategoriesResponse:
         model=settings.litellm_model,
         messages=messages,
         temperature=0.2,
+        timeout=60,
     )
     cost_tracker.record_from_response(settings.litellm_model, response)
 
     raw = response.choices[0].message.content or ""
     try:
-        parsed = _parse_llm_json(raw)
-    except (json_module.JSONDecodeError, TypeError):
+        parsed = parse_llm_json(raw)
+    except (ValueError, TypeError):
         logger.warning("categories_parse_error", audit_id=audit_id, raw=raw[:200])
         parsed = {}
 
@@ -420,7 +386,7 @@ async def suggest_categories(request: CategoriesRequest) -> CategoriesResponse:
     for cat in parsed.get("categories", []):
         name = cat.get("name", "unknown")
         # Estimate case count from percentage
-        pct = _safe_float(cat.get("estimated_percentage", 0))
+        pct = safe_float(cat.get("estimated_percentage", 0))
         case_count = round(pct / 100 * len(request.cases)) if pct else 0
         categories.append(
             SuggestedCategory(
@@ -473,13 +439,14 @@ async def analyse_distribution(request: DistributionRequest) -> DistributionResp
         model=settings.litellm_model,
         messages=messages,
         temperature=0.2,
+        timeout=60,
     )
     cost_tracker.record_from_response(settings.litellm_model, response)
 
     raw = response.choices[0].message.content or ""
     try:
-        parsed = _parse_llm_json(raw)
-    except (json_module.JSONDecodeError, TypeError):
+        parsed = parse_llm_json(raw)
+    except (ValueError, TypeError):
         logger.warning("distribution_parse_error", audit_id=audit_id, raw=raw[:200])
         parsed = {}
 
@@ -488,12 +455,12 @@ async def analyse_distribution(request: DistributionRequest) -> DistributionResp
         distribution.append(
             CategoryDistribution(
                 category=d.get("category", "unknown"),
-                count=_safe_int(d.get("count", 0)),
-                percentage=_safe_float(d.get("percentage", 0.0)),
+                count=safe_int(d.get("count", 0)),
+                percentage=safe_float(d.get("percentage", 0.0)),
             )
         )
 
-    uncategorized_count = _safe_int(parsed.get("uncategorized_count", 0))
+    uncategorized_count = safe_int(parsed.get("uncategorized_count", 0))
 
     logger.info(
         "distribution_requested",
