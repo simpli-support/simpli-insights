@@ -210,8 +210,6 @@ DISTRIBUTION_SYSTEM_PROMPT = (
 )
 
 
-
-
 @v1.post(
     "/themes",
     response_model=ThemesResponse,
